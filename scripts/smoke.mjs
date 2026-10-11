@@ -58,25 +58,25 @@ try {
     ['settings', '[data-setting="lowPower"]'],
     ['lab', '#name-input'],
   ]) {
-    await page.locator(`[data-action="tab"][data-tab="${tab}"]`).first().click()
+    await page.locator(`.mobile-nav [data-action="tab"][data-tab="${tab}"]`).click()
     await page.waitForSelector(`#screen-content ${expected}`)
   }
 
-  await page.locator('[data-action="tab"][data-tab="world"]').first().click()
+  await page.locator('.mobile-nav [data-action="tab"][data-tab="world"]').click()
   await page.locator('[data-action="world"][data-world="ashen-conservatory"]').click()
   await page.waitForFunction(() => document.querySelector('#scene-title')?.textContent?.includes('ASHEN CONSERVATORY'))
 
-  await page.locator('[data-action="tab"][data-tab="wardrobe"]').first().click()
+  await page.locator('.mobile-nav [data-action="tab"][data-tab="wardrobe"]').click()
   await page.locator('[data-action="outfit"][data-outfit="rift-warden"]').click()
   await page.waitForFunction(() => document.querySelector('#profile-archetype')?.textContent?.includes('RIFT WARDEN'))
 
-  await page.locator('[data-action="tab"][data-tab="settings"]').first().click()
+  await page.locator('.mobile-nav [data-action="tab"][data-tab="settings"]').click()
   const lowPower = page.locator('[data-setting="lowPower"]')
   await lowPower.check()
   await page.waitForFunction(() => localStorage.getItem('morphlab.profile.v2') !== null)
   await page.screenshot({ path: `${out}/02-morph-lab-settings.png` })
 
-  await page.locator('[data-action="tab"][data-tab="lab"]').first().click()
+  await page.locator('.mobile-nav [data-action="tab"][data-tab="lab"]').click()
   await page.locator('#name-input').fill('SMOKE TEST AVATAR')
   await page.locator('[data-action="morph"]').click()
   await page.waitForFunction(() => document.querySelector('#profile-name')?.textContent === 'SMOKE TEST AVATAR')
