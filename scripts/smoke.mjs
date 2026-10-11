@@ -78,7 +78,7 @@ try {
     const rect = card.getBoundingClientRect()
     const hit = document.elementFromPoint(Math.min(rect.left + 20, rect.right - 1), Math.min(rect.top + 20, rect.bottom - 1))
     return !!hit && (hit === card || card.contains(hit))
-  }, { timeout: 5000 })
+  }, undefined, { timeout: 5000 })
   await worldCard.click({ position: { x: 20, y: 20 } })
   await page.waitForFunction(() => document.querySelector('#scene-title')?.textContent?.includes('ASHEN CONSERVATORY'))
 
