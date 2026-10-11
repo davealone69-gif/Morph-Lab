@@ -106,8 +106,9 @@ export class ProfileStore {
     try { raw = this.storage?.getItem(PROFILE_KEY) ?? null } catch { raw = null }
     this.data = parseProfile(raw)
   }
-  save(): void {
-    try { this.storage?.setItem(PROFILE_KEY, JSON.stringify(this.data)) } catch { /* Private mode still works in memory. */ }
+  save(): boolean {
+    if (!this.storage) return false
+    try { this.storage.setItem(PROFILE_KEY, JSON.stringify(this.data)); return true } catch { /* Private mode still works in memory, but is not persisted. */ return false }
   }
   update(patch: Partial<ProfileData>): void { this.data = { ...this.data, ...patch }; this.save() }
   reset(): void { this.data = defaultProfile(); this.save() }
