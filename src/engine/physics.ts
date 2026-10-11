@@ -7,7 +7,7 @@ export { RAPIER }
 let ready: Promise<void> | undefined
 export function initPhysics(): Promise<void> {
   ready ??= RAPIER.init()
-  return ready
+  return ready ?? Promise.resolve()
 }
 
 type Binding = { body: RAPIER.RigidBody; object: THREE.Object3D; prev: THREE.Vector3; prevRot: THREE.Quaternion }
