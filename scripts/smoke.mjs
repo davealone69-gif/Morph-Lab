@@ -64,8 +64,22 @@ try {
 
   await page.locator('.mobile-nav [data-action="tab"][data-tab="world"]').click()
   const worldCard = page.locator('[data-action="world"][data-world="ashen-conservatory"]')
-  await worldCard.evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }))
-  await worldCard.click({ position: { x: 12, y: 12 } })
+  await worldCard.evaluate(element => {
+    const shell = element.closest('.app-shell')
+    if (!shell) throw new Error('app shell missing around world card')
+    const shellTop = shell.getBoundingClientRect().top
+    const cardTop = element.getBoundingClientRect().top
+    shell.scrollTop += cardTop - shellTop - 100
+    element.scrollIntoView({ block: 'start', behavior: 'instant' })
+  })
+  await page.waitForFunction(() => {
+    const card = document.querySelector('[data-action="world"][data-world="ashen-conservatory"]')
+    if (!card) return false
+    const rect = card.getBoundingClientRect()
+    const hit = document.elementFromPoint(Math.min(rect.left + 20, rect.right - 1), Math.min(rect.top + 20, rect.bottom - 1))
+    return !!hit && (hit === card || card.contains(hit))
+  }, { timeout: 5000 })
+  await worldCard.click({ position: { x: 20, y: 20 } })
   await page.waitForFunction(() => document.querySelector('#scene-title')?.textContent?.includes('ASHEN CONSERVATORY'))
 
   await page.locator('.mobile-nav [data-action="tab"][data-tab="wardrobe"]').click()
