@@ -49,19 +49,26 @@ jobs:
       - name: Production build
         run: pnpm build
 
+      - name: Upload production web build
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: morph-lab-web-build
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Install Chromium for browser smoke test
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Browser smoke test
         run: pnpm smoke
 
-      - name: Upload built web app and smoke screenshots
+      - name: Upload browser smoke screenshots
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: morph-lab-web-build
-          path: |
-            dist/
-            shots/
+          name: morph-lab-smoke-screenshots
+          path: shots/
           if-no-files-found: error
           retention-days: 14
