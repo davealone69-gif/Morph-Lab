@@ -1,1 +1,12 @@
-{"schemaVersion":2,"title":"MORPH LAB","description":"Turn your own image references into playable 3D avatars, then run them through a gothic shard-collecting arena.","defaultCaptions":{"x":"MORPH LAB — photo to playable.","facebook":"Build a playable avatar from your own image in MORPH LAB.","reddit":"MORPH LAB turns your reference into a procedural 3D arena character.","discord":"MORPH LAB: photo → playable."},"assets":{"favicon":"assets/share/favicon.png"}}
+{
+  "schemaVersion": 2,
+  "title": "MORPH LAB",
+  "description": "A local procedural-avatar exploration RPG with gothic worlds, shards, and wardrobe customization.",
+  "defaultCaptions": {
+    "x": "MORPH LAB — make the impossible playable.",
+    "facebook": "Explore gothic worlds with a customizable procedural avatar in MORPH LAB.",
+    "reddit": "MORPH LAB is a local-first procedural 3D exploration RPG.",
+    "discord": "MORPH LAB: procedural avatar → gothic exploration."
+  },
+  "assets": {}
+}
