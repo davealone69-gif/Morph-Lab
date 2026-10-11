@@ -90,8 +90,8 @@ function mat(color: string | number, metalness = 0.1, roughness = 0.6): THREE.Me
 function safeText(value: string): string { return value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char) }
 function setText(id: string, value: string): void { const node = document.getElementById(id); if (node) node.textContent = value }
 function announce(message: string): void { const node = document.getElementById('toast'); if (!node) return; node.textContent = message; node.classList.add('show'); window.clearTimeout(toastTimer); toastTimer = window.setTimeout(() => node.classList.remove('show'), 2800) }
-function saveProfile(): void { store.data = profile; store.save(); const chip = document.getElementById('save-chip'); if (chip) { chip.textContent = 'SAVED'; chip.classList.add('pulse'); window.setTimeout(() => chip.classList.remove('pulse'), 600) } }
-function updateProfile(patch: Partial<ProfileData>, message?: string): void { profile = { ...profile, ...patch }; store.data = profile; store.save(); updateHUD(); if (message) announce(message) }
+function saveProfile(): boolean { store.data = profile; const persisted = store.save(); const chip = document.getElementById('save-chip'); if (chip) { chip.textContent = persisted ? 'SAVED' : 'MEMORY ONLY'; chip.classList.toggle('unsaved', !persisted); chip.classList.add('pulse'); window.setTimeout(() => chip.classList.remove('pulse'), 600) }; return persisted }
+function updateProfile(patch: Partial<ProfileData>, message?: string): void { profile = { ...profile, ...patch }; saveProfile(); updateHUD(); if (message) announce(message) }
 
 function defaultFaceTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas'); c.width = c.height = 256; const ctx = c.getContext('2d')!
@@ -118,6 +118,22 @@ function buildAvatar(): void {
   if (profile.hair === 'twin-tails') { for (const x of [-0.46, 0.46]) { const tail = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 12), hairMat); tail.position.set(x, 2.48, 0.02); tail.scale.set(0.72, 1.55, 0.72); avatarGroup.add(tail) } }
   if (profile.hair === 'crown') { for (let i = 0; i < 7; i += 1) { const thorn = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.38, 6), hairMat); const a = (i / 7) * Math.PI * 2; thorn.position.set(Math.cos(a) * 0.34, 2.8, Math.sin(a) * 0.16); thorn.rotation.z = Math.cos(a) * 0.5; thorn.rotation.x = Math.sin(a) * 0.5; avatarGroup.add(thorn) } }
   const face = new THREE.Mesh(new THREE.CircleGeometry(0.36, 32), new THREE.MeshBasicMaterial({ map: faceTexture ?? syntheticFace, transparent: true, depthWrite: false })); face.position.set(0, 2.32, -0.58); face.scale.set(1, 1.2, 1); face.rotation.y = Math.PI; avatarGroup.add(face)
+  const expressionMat = new THREE.MeshBasicMaterial({ color: 0x351021 })
+  const addExpressionLine = (points: [number, number, number][], radius: number) => { const curve = new THREE.CatmullRomCurve3(points.map(point => new THREE.Vector3(...point))); const line = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, radius, 6, false), expressionMat); avatarGroup.add(line) }
+  const browY = profile.expression === 'fierce' ? 2.43 : 2.46
+  if (profile.expression === 'fierce') {
+    addExpressionLine([[-0.22, browY + 0.04, -0.61], [-0.13, browY, -0.625], [-0.05, browY - 0.025, -0.62]], 0.018)
+    addExpressionLine([[0.05, browY - 0.025, -0.62], [0.13, browY, -0.625], [0.22, browY + 0.04, -0.61]], 0.018)
+    addExpressionLine([[-0.1, 2.16, -0.62], [0, 2.19, -0.63], [0.1, 2.16, -0.62]], 0.018)
+  } else if (profile.expression === 'sly') {
+    addExpressionLine([[-0.22, 2.45, -0.61], [-0.13, 2.47, -0.625], [-0.05, 2.45, -0.62]], 0.016)
+    addExpressionLine([[0.05, 2.44, -0.62], [0.14, 2.47, -0.625], [0.22, 2.46, -0.61]], 0.016)
+    addExpressionLine([[-0.1, 2.16, -0.62], [0.01, 2.14, -0.63], [0.12, 2.19, -0.62]], 0.018)
+  } else {
+    addExpressionLine([[-0.22, 2.46, -0.61], [-0.13, 2.46, -0.625], [-0.05, 2.46, -0.62]], 0.014)
+    addExpressionLine([[0.05, 2.46, -0.62], [0.13, 2.46, -0.625], [0.22, 2.46, -0.61]], 0.014)
+    addExpressionLine([[-0.1, 2.16, -0.62], [0, 2.14, -0.63], [0.1, 2.16, -0.62]], 0.016)
+  }
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.055, 8, 32), accentMat); collar.rotation.x = Math.PI / 2; collar.position.set(0, 1.84, -0.04); avatarGroup.add(collar)
   const emblem = new THREE.Mesh(new THREE.OctahedronGeometry(0.12), accentMat); emblem.position.set(0, 1.42, -0.54); avatarGroup.add(emblem)
   avatarAura = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.018, 8, 64), new THREE.MeshBasicMaterial({ color: outfit.accent, transparent: true, opacity: 0.78 })); avatarAura.rotation.x = Math.PI / 2; avatarAura.position.y = 0.04; avatarGroup.add(avatarAura)
@@ -212,7 +228,7 @@ function changeWorld(id: WorldId): void { profile.currentWorld = id; if (!profil
 function chooseOutfit(id: OutfitId): void { profile.outfit = id; const marker = `outfit:${id}`; if (!profile.collectibles.includes(marker)) profile.collectibles.push(marker); checkMilestones(); saveProfile(); buildAvatar(); updateHUD(); renderTab('wardrobe'); announce(`${OUTFITS[id].label} equipped`) }
 function beginPlay(): void { running = true; setText('mode-pill', 'EXPLORATION'); setText('play-label', 'PAUSE WORLD'); setText('footer-message', 'is exploring.'); document.body.classList.add('playing'); profile.seenTutorial = true; saveProfile(); announce('Explore freely · collect shards and relics') }
 function pausePlay(): void { running = false; setText('mode-pill', 'PAUSED'); setText('play-label', 'ENTER WORLD'); document.body.classList.remove('playing') }
-function resetRun(): void { avatarGroup.position.set(0, 0, 0); pickups.forEach(pickup => { pickup.visible = true }); running = false; setText('mode-pill', 'LAB PREVIEW'); setText('play-label', 'ENTER WORLD'); document.body.classList.remove('playing'); announce('Run reset · your profile was kept safe') }
+function resetRun(): void { avatarGroup.position.set(0, 0, 0); running = false; setText('mode-pill', 'LAB PREVIEW'); setText('play-label', 'ENTER WORLD'); document.body.classList.remove('playing'); announce('Run reset · collected shards remain collected') }
 function cycleTime(): void { profile.dayPhase = (profile.dayPhase + 0.23) % 1; saveProfile(); updateWorldUI(); announce(profile.dayPhase < 0.28 || profile.dayPhase > 0.78 ? 'Night cycle engaged' : 'Dawn cycle engaged') }
 
 root.addEventListener('click', event => {
@@ -231,8 +247,8 @@ root.addEventListener('click', event => {
   else if (action === 'hair') { profile.hair = target.dataset.value as HairStyle; saveProfile(); buildAvatar(); renderTab('wardrobe'); updateHUD() }
   else if (action === 'expression') { profile.expression = target.dataset.value as Expression; saveProfile(); buildAvatar(); renderTab('wardrobe'); updateHUD() }
   else if (action === 'cycle-time') cycleTime()
-  else if (action === 'save-now') { saveProfile(); announce('Profile saved locally') }
-  else if (action === 'reset-profile') { if (window.confirm('Reset local progression and wardrobe choices?')) { store.reset(); profile = store.data; faceTexture?.dispose(); faceTexture = undefined; portraitData = ''; buildAvatar(); buildWorld(); renderTab('lab'); updateHUD(); announce('Local profile reset') } }
+  else if (action === 'save-now') { announce(saveProfile() ? 'Profile saved locally' : 'Storage unavailable · profile remains in memory only') }
+  else if (action === 'reset-profile') { if (window.confirm('Reset local progression and wardrobe choices?')) { store.reset(); profile = store.data; faceTexture?.dispose(); faceTexture = undefined; portraitData = ''; const portrait = document.getElementById('portrait') as HTMLImageElement | null; if (portrait) { portrait.removeAttribute('src'); portrait.classList.remove('visible') }; document.getElementById('portrait-placeholder')?.classList.remove('hidden'); buildAvatar(); buildWorld(); renderTab('lab'); updateHUD(); announce('Local profile reset') } }
 })
 root.addEventListener('change', event => {
   const target = event.target as HTMLElement | null
