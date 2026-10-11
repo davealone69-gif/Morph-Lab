@@ -248,7 +248,7 @@ root.addEventListener('click', event => {
   else if (action === 'expression') { profile.expression = target.dataset.value as Expression; saveProfile(); buildAvatar(); renderTab('wardrobe'); updateHUD() }
   else if (action === 'cycle-time') cycleTime()
   else if (action === 'save-now') { announce(saveProfile() ? 'Profile saved locally' : 'Storage unavailable · profile remains in memory only') }
-  else if (action === 'reset-profile') { if (window.confirm('Reset local progression and wardrobe choices?')) { store.reset(); profile = store.data; faceTexture?.dispose(); faceTexture = undefined; portraitData = ''; const portrait = document.getElementById('portrait') as HTMLImageElement | null; if (portrait) { portrait.removeAttribute('src'); portrait.classList.remove('visible') }; document.getElementById('portrait-placeholder')?.classList.remove('hidden'); buildAvatar(); buildWorld(); renderTab('lab'); updateHUD(); announce('Local profile reset') } }
+  else if (action === 'reset-profile') { if (window.confirm('Reset local progression and wardrobe choices?')) { store.reset(); profile = store.data; saveProfile(); faceTexture?.dispose(); faceTexture = undefined; portraitData = ''; const portrait = document.getElementById('portrait') as HTMLImageElement | null; if (portrait) { portrait.removeAttribute('src'); portrait.classList.remove('visible') }; document.getElementById('portrait-placeholder')?.classList.remove('hidden'); buildAvatar(); buildWorld(); renderTab('lab'); updateHUD(); announce('Local profile reset') } }
 })
 root.addEventListener('change', event => {
   const target = event.target as HTMLElement | null
