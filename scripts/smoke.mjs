@@ -63,7 +63,9 @@ try {
   }
 
   await page.locator('.mobile-nav [data-action="tab"][data-tab="world"]').click()
-  await page.locator('[data-action="world"][data-world="ashen-conservatory"]').click()
+  const worldCard = page.locator('[data-action="world"][data-world="ashen-conservatory"]')
+  await worldCard.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }))
+  await worldCard.click({ position: { x: 12, y: 12 } })
   await page.waitForFunction(() => document.querySelector('#scene-title')?.textContent?.includes('ASHEN CONSERVATORY'))
 
   await page.locator('.mobile-nav [data-action="tab"][data-tab="wardrobe"]').click()
