@@ -2,7 +2,7 @@
 
 **MORPH LAB** is a browser-based, single-player 3D exploration RPG built with Three.js and Rapier. It runs as a static web app and is designed to be installable as a Progressive Web App (PWA) on Android.
 
-> **Honest feature boundary:** the avatar is procedurally built from in-app geometry and selected style options. An uploaded image is cropped locally and used as a flat face-reference texture; the app does **not** use AI to reconstruct a 3D face or generate a photorealistic avatar. There is no backend, account system, online multiplayer, or native Android APK in this repository.
+> **Honest feature boundary:** the avatar is procedurally built from in-app geometry and selected style options. An uploaded image is cropped locally and used as a flat face-reference texture; the app does **not** use AI to reconstruct a 3D face or generate a photorealistic avatar. There is no backend, account system, online multiplayer, or AI-based avatar reconstruction. A native Android WebView wrapper is included; it bundles the web game locally.
 
 ## Implemented in source
 
@@ -18,7 +18,7 @@
 ## Not implemented / not claimed
 
 - AI face reconstruction, photorealistic 3D avatar generation, or a generative AI service.
-- Native APK/AAB packaging or Play Store release.
+- Signed production APK/AAB or Play Store release. CI builds an unsigned-for-Play debug APK for installation and testing.
 - Remote server, cloud saves, account/login, online multiplayer, or remote NPC AI.
 - Guaranteed offline first launch. The service worker caches a small app shell after a successful online load; verify offline behavior on the target browser/device.
 - Physical Android-device runtime verification from the repository alone.
@@ -40,7 +40,7 @@ pnpm smoke
 - `build` restores any pinned local assets, builds the Vite app, checks size budgets, and assembles the static share site.
 - `smoke` serves the production output and uses Playwright/Chromium to exercise the current MORPH LAB navigation and core controls. Install Chromium first with `pnpm exec playwright install chromium`.
 
-The GitHub Actions workflow runs typecheck, unit tests, production build, and browser smoke checks, then uploads `dist/` and screenshots as a downloadable artifact. An artifact is a web build, **not an APK**. A green workflow does not substitute for testing on a real Android phone.
+The GitHub Actions workflow runs typecheck, unit tests, production build, and browser smoke checks, uploads the web build and screenshots, and independently builds an installable Android debug APK artifact. Download `morph-lab-android-debug-apk` from the workflow run. This debug APK is for testing, not Play Store release. A green workflow does not substitute for testing on a real Android phone.
 
 ## Project structure
 
@@ -60,3 +60,7 @@ The GitHub Actions workflow runs typecheck, unit tests, production build, and br
 ## Dependencies and assets
 
 Three.js is MIT licensed; Rapier is Apache-2.0. Fonts and their license are bundled in `public/fonts/`. The build does not require Manus project-storage credentials; the app's favicon is a checked-in SVG.
+
+## Android APK
+
+The Android project lives in `android/`. The APK packages the Vite output inside a native Android WebView, so the core game can launch without fetching the hosted site. The image-reference picker uses Android's document picker. Build instructions are in [android/README.md](android/README.md).
