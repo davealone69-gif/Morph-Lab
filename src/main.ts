@@ -124,17 +124,54 @@ function buildAvatar(): void {
   avatarGroup.traverse(object => { if (object instanceof THREE.Mesh) { object.castShadow = true; object.receiveShadow = true } })
 }
 
+function worldBox(size: [number, number, number], position: [number, number, number], material: THREE.Material, rotationY = 0): THREE.Mesh {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material); mesh.position.set(...position); mesh.rotation.y = rotationY; mesh.castShadow = true; mesh.receiveShadow = true; worldGroup.add(mesh); return mesh
+}
+
+function worldCylinder(radius: number, height: number, position: [number, number, number], material: THREE.Material, segments = 16): THREE.Mesh {
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 1.08, height, segments), material); mesh.position.set(...position); mesh.castShadow = true; mesh.receiveShadow = true; worldGroup.add(mesh); return mesh
+}
+
+function buildWorldArchitecture(meta: typeof WORLD_META[WorldId]): void {
+  const stone = mat(meta.accent, 0.32, 0.52)
+  const darkStone = mat(meta.ground, 0.2, 0.76)
+  if (profile.currentWorld === 'blood-moon') {
+    const hedge = mat(0x25152a, 0.05, 0.94)
+    worldCylinder(1.25, 0.24, [0, 0.12, 0], stone, 32)
+    const basin = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.1, 8, 32), new THREE.MeshBasicMaterial({ color: meta.accent, transparent: true, opacity: 0.8 })); basin.rotation.x = Math.PI / 2; basin.position.y = 0.3; worldGroup.add(basin)
+    for (const [x, z, r] of [[-4.8, -2.8, 0], [-4.8, 2.8, 0], [4.8, -2.8, 0], [4.8, 2.8, 0], [0, -6.1, 0], [0, 6.1, 0]] as [number, number, number][]) worldBox([2.2, 0.72, 0.42], [x, 0.36, z], hedge, r)
+    for (const [x, z] of [[-7.4, -5.8], [7.4, -5.8], [-7.4, 5.8], [7.4, 5.8]]) { worldCylinder(0.18, 1.4, [x, 0.7, z], darkStone, 10); const crown = new THREE.Mesh(new THREE.SphereGeometry(0.72, 12, 10), mat(0x3c1b3a, 0.05, 0.8)); crown.position.set(x, 1.65, z); crown.scale.y = 1.25; crown.castShadow = true; worldGroup.add(crown) }
+    const archMaterial = mat(0x5e234d, 0.48, 0.34); worldBox([0.35, 3.2, 0.35], [-2.2, 1.6, -8], archMaterial); worldBox([0.35, 3.2, 0.35], [2.2, 1.6, -8], archMaterial); worldBox([4.7, 0.35, 0.35], [0, 3.1, -8], archMaterial)
+  } else if (profile.currentWorld === 'ashen-conservatory') {
+    const glass = new THREE.MeshStandardMaterial({ color: 0x8de4dc, emissive: 0x123d43, emissiveIntensity: 0.7, transparent: true, opacity: 0.18, metalness: 0.35, roughness: 0.18, side: THREE.DoubleSide })
+    const frame = mat(0x90c7c0, 0.72, 0.26)
+    worldBox([0.18, 4.8, 13.5], [-5.9, 2.4, 0], frame); worldBox([0.18, 4.8, 13.5], [5.9, 2.4, 0], frame); worldBox([11.8, 0.18, 13.5], [0, 4.8, 0], frame)
+    for (const z of [-5.2, -2.6, 0, 2.6, 5.2]) { worldBox([0.12, 4.5, 0.12], [-5.9, 2.25, z], frame); worldBox([0.12, 4.5, 0.12], [5.9, 2.25, z], frame); worldBox([11.8, 0.12, 0.12], [0, 4.8, z], frame) }
+    worldBox([11.4, 4.2, 12.7], [0, 2.2, 0], glass)
+    const planter = mat(0x274b46, 0.05, 0.82)
+    for (const [x, z] of [[-4.2, -4.5], [4.2, -4.5], [-4.2, 4.5], [4.2, 4.5]]) { worldBox([1.8, 0.45, 1.2], [x, 0.22, z], planter); for (const offset of [-0.45, 0, 0.45]) { const plant = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 7), mat(0x6cc5a2, 0.05, 0.74)); plant.position.set(x + offset, 0.95, z); plant.castShadow = true; worldGroup.add(plant) } }
+    for (const [x, z] of [[-2.4, 0], [2.4, 0]]) worldCylinder(0.72, 0.16, [x, 0.08, z], stone, 20)
+  } else {
+    const stage = mat(0x4a1e45, 0.34, 0.48); const curtain = mat(0x6d183e, 0.18, 0.52); const brass = mat(0xb88b55, 0.82, 0.24)
+    const floor = new THREE.Mesh(new THREE.CylinderGeometry(10.8, 10.8, 0.22, 12), darkStone); floor.position.y = 0.04; floor.receiveShadow = true; worldGroup.add(floor)
+    worldBox([8.2, 0.48, 2.8], [0, 0.32, -6], stage); worldBox([0.55, 5.2, 2.2], [-4.4, 2.6, -6], curtain); worldBox([0.55, 5.2, 2.2], [4.4, 2.6, -6], curtain); worldBox([8.6, 0.7, 2.2], [0, 5.1, -6], curtain)
+    for (const x of [-7, 7]) { worldCylinder(0.34, 4.8, [x, 2.4, -4.8], brass, 14); worldBox([0.16, 3.4, 0.16], [x, 1.7, 1.8], brass) }
+    for (const z of [1.8, 3.5, 5.2]) { worldBox([7.8, 0.28, 0.8], [0, 0.32, z], stage); for (const x of [-3.2, -1.6, 0, 1.6, 3.2]) worldBox([0.7, 0.42, 0.55], [x, 0.68, z], curtain, x * 0.03) }
+    for (const x of [-2.6, 2.6]) { const banner = worldBox([0.9, 2.2, 0.08], [x, 2.1, -4.75], stone); banner.rotation.z = x < 0 ? -0.08 : 0.08 }
+  }
+}
+
 function buildWorld(): void {
   const meta = WORLD_META[profile.currentWorld]
   clearGroup(worldGroup); clearGroup(companionGroup); pickups.length = 0
   scene.background = new THREE.Color(meta.sky); scene.fog = new THREE.FogExp2(meta.fog, profile.lowPower ? 0.045 : 0.032)
-  ground = new THREE.Mesh(new THREE.CircleGeometry(12, 64), new THREE.MeshStandardMaterial({ color: meta.ground, roughness: 0.84, metalness: 0.08 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; worldGroup.add(ground)
-  const grid = new THREE.GridHelper(19, 19, meta.accent, 0x24183b); grid.position.y = 0.014; (grid.material as THREE.Material).opacity = 0.42; (grid.material as THREE.Material).transparent = true; worldGroup.add(grid)
-  const ring = new THREE.Mesh(new THREE.RingGeometry(8.8, 8.88, 96), new THREE.MeshBasicMaterial({ color: meta.accent, transparent: true, opacity: 0.74, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; worldGroup.add(ring)
-  for (const [x, z] of [[-8, -6], [8, 6], [-7, 6], [7, -6]]) { const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.3, 2.2, 8), mat(meta.accent, 0.35, 0.42)); pillar.position.set(x, 1.1, z); pillar.castShadow = true; worldGroup.add(pillar) }
-  const positions = profile.currentWorld === 'ashen-conservatory' ? [[-5, -4], [-1, -5], [4, -4], [6, -1], [-6, 1], [-2, 3], [2, 4], [5, 5], [-6, 5], [0, 0]] : profile.currentWorld === 'velvet-ruins' ? [[-5, -4], [-2, -5], [3, -4], [6, -2], [-5, 0], [-2, 3], [2, 4], [5, 4], [-6, 5], [0, -1]] : [[-4, -3], [-1, -5], [3, -4], [5, -1], [-5, 1], [-2, 3], [2, 4], [5, 4], [-6, 5], [0, 0]]
+  const groundGeometry = profile.currentWorld === 'blood-moon' ? new THREE.CircleGeometry(12, 64) : profile.currentWorld === 'ashen-conservatory' ? new THREE.PlaneGeometry(18, 16) : new THREE.CylinderGeometry(11, 11, 0.16, 12)
+  ground = new THREE.Mesh(groundGeometry, new THREE.MeshStandardMaterial({ color: meta.ground, roughness: 0.84, metalness: 0.08 })); ground.rotation.x = profile.currentWorld === 'velvet-ruins' ? 0 : -Math.PI / 2; ground.position.y = profile.currentWorld === 'velvet-ruins' ? -0.08 : 0; ground.receiveShadow = true; worldGroup.add(ground)
+  buildWorldArchitecture(meta)
+  const positions = profile.currentWorld === 'ashen-conservatory' ? [[-5, -4], [-1, -5], [4, -4], [6, -1], [-6, 1], [-2, 3], [2, 4], [5, 5], [-6, 5], [0, 0]] : profile.currentWorld === 'velvet-ruins' ? [[-5, -2], [-2, -3], [3, -2], [6, -1], [-5, 1], [-2, 3], [2, 4], [5, 5], [-6, 5], [0, 1]] : [[-4, -4], [-1, -5], [3, -4], [5, -1], [-5, 1], [-2, 3], [2, 4], [5, 4], [-6, 5], [0, 0]]
   for (const [x, z] of positions) { const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.25), new THREE.MeshStandardMaterial({ color: colors.cream, emissive: meta.accent, emissiveIntensity: 3.4, metalness: 0.26, roughness: 0.2 })); shard.position.set(x, 0.55, z); shard.castShadow = true; worldGroup.add(shard); pickups.push(shard) }
-  for (const [x, z] of [[-3, 5], [4, 2]]) { const relic = new THREE.Mesh(new THREE.TorusKnotGeometry(0.25, 0.055, 32, 8), new THREE.MeshStandardMaterial({ color: meta.accent, emissive: meta.accent, emissiveIntensity: 2.4, metalness: 0.7, roughness: 0.2 })); relic.position.set(x, 0.75, z); relic.userData.relic = `${profile.currentWorld}:${x}:${z}`; worldGroup.add(relic) }
+  const relicPositions = profile.currentWorld === 'blood-moon' ? [[-7, 0], [7, 0]] : profile.currentWorld === 'ashen-conservatory' ? [[-3, -6], [3, 6]] : [[-6, 3], [6, 3]]
+  for (const [x, z] of relicPositions) { const relic = new THREE.Mesh(new THREE.TorusKnotGeometry(0.25, 0.055, 32, 8), new THREE.MeshStandardMaterial({ color: meta.accent, emissive: meta.accent, emissiveIntensity: 2.4, metalness: 0.7, roughness: 0.2 })); relic.position.set(x, 0.75, z); relic.userData.relic = `${profile.currentWorld}:${x}:${z}`; worldGroup.add(relic) }
   companionName = profile.currentWorld === 'velvet-ruins' ? 'ORRERY' : profile.currentWorld === 'ashen-conservatory' ? 'MOSS' : 'VESPER'
   const companionMat = new THREE.MeshStandardMaterial({ color: meta.accent, emissive: meta.accent, emissiveIntensity: 3, transparent: true, opacity: 0.86 })
   for (const [x, z] of [[-2.6, -1.2], [2.8, 2.4]]) { const wisp = new THREE.Mesh(new THREE.IcosahedronGeometry(0.25, 1), companionMat); wisp.position.set(x, 1.25, z); wisp.userData.base = new THREE.Vector3(x, 1.25, z); companionGroup.add(wisp) }
