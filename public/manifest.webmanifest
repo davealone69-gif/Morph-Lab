@@ -1,1 +1,19 @@
-{"name":"MORPH LAB — Local Avatar RPG","short_name":"MORPH LAB","start_url":"./","scope":"./","display":"standalone","background_color":"#080916","theme_color":"#080916","orientation":"any","description":"Create a local 3D avatar, explore gothic worlds, collect relics, and progress without an account.","icons":[{"src":"./assets/share/favicon.png","sizes":"64x64","type":"image/png","purpose":"any maskable"}]}
+{
+  "name": "MORPH LAB — Local Avatar RPG",
+  "short_name": "MORPH LAB",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080916",
+  "theme_color": "#080916",
+  "orientation": "any",
+  "description": "Customize a procedural 3D avatar, explore gothic worlds, collect relics, and progress without an account.",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
