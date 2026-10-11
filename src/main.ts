@@ -1,158 +1,63 @@
 import './styles/main.css'
-import { Audio } from './engine/audio'
-import { I18n, resolveLocale } from './engine/i18n'
-import { Input } from './engine/input'
-import { GameLoop } from './engine/loop'
-import { SAVE_KEY, SaveStore, type SaveData } from './engine/save'
-import type { Game } from './game/game'
-import { TouchControls } from './ui/touch'
-import { Ui } from './ui/ui'
+import * as THREE from 'three'
 
-async function boot(): Promise<void> {
-  const canvas = document.querySelector<HTMLCanvasElement>('#game')!
-  const firstRun = safeGet(SAVE_KEY) === null
-  const save = new SaveStore()
+type AvatarSettings = { name: string; archetype: string; hair: string; outfit: string; accent: string }
+const palette = { ink: 0x080916, skin: 0xe5b5a5 }
+const root = document.querySelector<HTMLDivElement>('#ui')!
+const canvas = document.querySelector<HTMLCanvasElement>('#game')!
+root.innerHTML = `
+  <div class="app-shell">
+    <header class="topbar"><div class="brand-lockup"><span class="brand-gem">✦</span><div><div class="brand">MORPH LAB</div><div class="eyebrow">PHOTO → PLAYABLE</div></div></div><div class="top-status"><span class="status-dot"></span><span>LOCAL AVATAR MODE</span></div></header>
+    <main class="layout">
+      <aside class="lab-panel panel"><div class="panel-kicker">01 / CHARACTER LAB</div><h1>Make the<br><em>impossible</em> playable.</h1><p class="intro">Bring a face, a mood, or a whole myth. MORPH LAB turns your reference into a game-safe 3D avatar you can move through the arena.</p>
+        <label class="upload-zone" for="image-input"><input id="image-input" type="file" accept="image/*"/><span class="upload-icon">↥</span><span><strong>Drop a reference image</strong><small>Only the face crop is used locally on this device.</small></span><b>ADD</b></label>
+        <div class="field"><label for="name-input">AVATAR NAME</label><input id="name-input" maxlength="18" value="NIGHTSHADE"/></div>
+        <div class="field"><label for="archetype-input">ARCHETYPE</label><select id="archetype-input"><option>Vampire Scout</option><option>Neon Oracle</option><option>Warden of the Rift</option><option>Moonlit Duelist</option></select></div>
+        <div class="swatch-row"><div><label>HAIR</label><div class="swatches" data-swatch="hair"><button class="swatch active" data-value="#210e1b" style="--swatch:#210e1b"></button><button class="swatch" data-value="#c23a5b" style="--swatch:#c23a5b"></button><button class="swatch" data-value="#c7b8ff" style="--swatch:#c7b8ff"></button></div></div><div><label>OUTFIT</label><div class="swatches" data-swatch="outfit"><button class="swatch active" data-value="#2b1634" style="--swatch:#2b1634"></button><button class="swatch" data-value="#152f4f" style="--swatch:#152f4f"></button><button class="swatch" data-value="#242c25" style="--swatch:#242c25"></button></div></div></div>
+        <button class="primary-button" id="morph-button">MORPH THIS IDEA <span>↗</span></button><div class="privacy-note"><span>◉</span><span><strong>Private by design</strong><br>Your image never leaves this browser prototype.</span></div>
+      </aside>
+      <section class="viewport-panel"><div class="viewport-head"><div><div class="panel-kicker">LIVE PREVIEW / ARENA 01</div><h2 id="scene-title">THE BLOOD MOON GARDEN</h2></div><button class="ghost-button" id="reset-button">RESET SHARDS</button></div><div class="viewport-frame"><div class="scanline"></div><div class="crosshair">+</div><div class="mode-pill" id="mode-pill">LAB PREVIEW</div><div class="hint-pill">DRAG TO LOOK · WASD TO MOVE</div></div><div class="mobile-controls"><div class="joystick" id="joystick"><i></i></div><button id="dash-button" class="dash-button">DASH</button></div><div class="arena-footer"><span><b id="footer-name">NIGHTSHADE</b> is ready to run.</span><button class="play-button" id="play-button">PLAY THIS AVATAR <span>▶</span></button></div></section>
+      <aside class="profile-panel panel"><div class="panel-kicker">02 / LIVE LOADOUT</div><div class="portrait-wrap"><div class="portrait-glow"></div><div class="portrait-placeholder" id="portrait-placeholder">✦</div><img id="portrait" alt="Local reference crop"/></div><div class="profile-name"><span class="online-mark"></span><h3 id="profile-name">NIGHTSHADE</h3></div><p class="profile-archetype" id="profile-archetype">VAMPIRE SCOUT</p><div class="trait-list"><div><span>BODY</span><b>PROCEDURAL 3D</b></div><div><span>FACE</span><b id="face-status">SYNTHETIC PREVIEW</b></div><div><span>MOOD</span><b>GOTHIC / ADULT</b></div></div><div class="shard-card"><div><span class="shard-icon">◆</span> SHARDS</div><strong id="shard-count">00</strong><small>COLLECTED IN ARENA</small></div><div class="control-card"><div><kbd>W A S D</kbd><span>move</span></div><div><kbd>SHIFT</kbd><span>dash</span></div><div><kbd>TOUCH</kbd><span>mobile controls</span></div></div></aside>
+    </main><footer class="footer-note"><span>BUILD 0.1 / ANDROID-READY WEB GAME</span><span>Adult atmosphere · non-explicit avatar design</span></footer>
+  </div>`
 
-  const i18n = new I18n(resolveLocale(save.data.locale, navigator.languages))
-  const input = new Input(canvas)
-  const audio = new Audio()
-  let game: Game | undefined
-  let lockLostAt = 0
+const scene = new THREE.Scene(); scene.background = new THREE.Color(palette.ink); scene.fog = new THREE.FogExp2(0x090a18, 0.035)
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75)); renderer.shadowMap.enabled = true; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15
+scene.add(new THREE.HemisphereLight(0x9e8cff, 0x080813, 1.8)); const moon = new THREE.DirectionalLight(0xffd5df, 3.5); moon.position.set(-4, 9, 5); moon.castShadow = true; moon.shadow.mapSize.set(1024, 1024); scene.add(moon)
+const pink = new THREE.PointLight(0xff255e, 20, 14, 2); pink.position.set(-5, 2.5, -4); scene.add(pink); const violet = new THREE.PointLight(0x714bff, 18, 12, 2); violet.position.set(5, 2, 1); scene.add(violet); const frontFill = new THREE.PointLight(0xff8ca9, 11, 11, 2); frontFill.position.set(2, 4, -5); scene.add(frontFill)
+const arena = new THREE.Group(); scene.add(arena); const ground = new THREE.Mesh(new THREE.CircleGeometry(11, 64), new THREE.MeshStandardMaterial({ color: 0x131126, roughness: 0.82, metalness: 0.08 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; arena.add(ground)
+const grid = new THREE.GridHelper(18, 18, 0x513267, 0x201939); grid.position.y = 0.012; (grid.material as THREE.Material).opacity = .55; (grid.material as THREE.Material).transparent = true; arena.add(grid)
+const ring = new THREE.Mesh(new THREE.RingGeometry(8.7, 8.78, 96), new THREE.MeshBasicMaterial({ color: 0xff426c, transparent: true, opacity: .75, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = .02; arena.add(ring)
+for (const x of [-8, 8]) for (const z of [-6, 6]) { const pillar = new THREE.Mesh(new THREE.CylinderGeometry(.12, .28, 2.2, 8), new THREE.MeshStandardMaterial({ color: 0x381c45, emissive: 0x250c35, emissiveIntensity: 1.2 })); pillar.position.set(x, 1.1, z); pillar.castShadow = true; arena.add(pillar) }
+const shards: THREE.Mesh[] = []; const shardPositions = [[-4, -3], [-1, -5], [3, -4], [5, -1], [-5, 1], [-2, 3], [2, 4], [5, 4], [-6, 5], [0, 0]]
+for (const [x, z] of shardPositions) { const shard = new THREE.Mesh(new THREE.OctahedronGeometry(.26), new THREE.MeshStandardMaterial({ color: 0xffc3d0, emissive: 0xff225f, emissiveIntensity: 3.2, metalness: .25, roughness: .2 })); shard.position.set(x, .55, z); shard.castShadow = true; arena.add(shard); shards.push(shard) }
 
-  const applySettings = (d: SaveData) => {
-    input.sensitivity = d.sensitivity
-    input.invertY = d.invertY
-    audio.setVolumes(d.musicVolume, d.sfxVolume, d.muted)
-    if (game) game.reducedMotion = d.reducedMotion
-  }
+let avatar = new THREE.Group(); scene.add(avatar); let faceTexture: THREE.Texture | undefined; let avatarSettings: AvatarSettings = { name: 'NIGHTSHADE', archetype: 'Vampire Scout', hair: '#210e1b', outfit: '#2b1634', accent: '#ff426c' }
+const defaultFaceTexture = createFaceTexture()
+function material(color: string | number, metalness = .15, roughness = .5): THREE.MeshStandardMaterial { return new THREE.MeshStandardMaterial({ color, metalness, roughness }) }
+function createFaceTexture(): THREE.CanvasTexture { const c = document.createElement('canvas'); c.width = c.height = 256; const ctx = c.getContext('2d')!; const g = ctx.createRadialGradient(128, 124, 10, 128, 128, 150); g.addColorStop(0, '#f0c6bb'); g.addColorStop(1, '#a95e6e'); ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 256); ctx.fillStyle = '#2a0d24'; ctx.beginPath(); ctx.ellipse(84, 116, 15, 6, -.1, 0, Math.PI * 2); ctx.ellipse(172, 116, 15, 6, .1, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#160b17'; ctx.beginPath(); ctx.ellipse(84, 116, 5, 5, 0, 0, Math.PI * 2); ctx.ellipse(172, 116, 5, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#6b203b'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(128, 161, 25, .15, Math.PI - .15); ctx.stroke(); return new THREE.CanvasTexture(c) }
+function buildAvatar(settings: AvatarSettings): void { scene.remove(avatar); avatar = new THREE.Group(); const hairMat = material(settings.hair, .05, .32); const coatMat = material(settings.outfit, .25, .42); const accentMat = material(settings.accent, .45, .22); const skinMat = material(palette.skin, 0, .62)
+  const legs = new THREE.Mesh(new THREE.CapsuleGeometry(.19, .7, 6, 12), material(0x111321, .2, .38)); legs.position.set(-.22, .55, 0); avatar.add(legs); const leg2 = legs.clone(); leg2.position.x = .22; avatar.add(leg2); const boots = new THREE.Mesh(new THREE.BoxGeometry(.36, .18, .58), material(0x0b0b13, .5, .25)); boots.position.set(-.22, .13, -.08); avatar.add(boots); const boots2 = boots.clone(); boots2.position.x = .22; avatar.add(boots2)
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.58, .7, 8, 16), coatMat); torso.position.y = 1.32; avatar.add(torso); const mantle = new THREE.Mesh(new THREE.ConeGeometry(.82, .9, 8, 1, true), coatMat); mantle.position.y = 1.15; mantle.rotation.x = Math.PI; avatar.add(mantle)
+  const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.14, .65, 6, 10), coatMat); arm.position.set(-.7, 1.35, 0); arm.rotation.z = -.12; avatar.add(arm); const arm2 = arm.clone(); arm2.position.x = .7; arm2.rotation.z = .12; avatar.add(arm2)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.46, 24, 18), skinMat); head.position.y = 2.35; head.scale.set(.92, 1.06, .86); avatar.add(head); const hair = new THREE.Mesh(new THREE.SphereGeometry(.53, 24, 18, 0, Math.PI * 2, 0, Math.PI * .72), hairMat); hair.position.set(0, 2.48, .02); hair.scale.set(1.02, 1.15, .98); avatar.add(hair)
+  const face = new THREE.Mesh(new THREE.CircleGeometry(.36, 32), new THREE.MeshStandardMaterial({ map: faceTexture ?? defaultFaceTexture, transparent: true, roughness: .52 })); face.position.set(0, 2.34, -.58); face.scale.set(1, 1.2, 1); face.rotation.y = Math.PI; avatar.add(face); const collar = new THREE.Mesh(new THREE.TorusGeometry(.38, .055, 8, 32), accentMat); collar.rotation.x = Math.PI / 2; collar.position.set(0, 1.84, -.04); avatar.add(collar); const aura = new THREE.Mesh(new THREE.TorusGeometry(.9, .018, 8, 64), new THREE.MeshBasicMaterial({ color: settings.accent, transparent: true, opacity: .75 })); aura.rotation.x = Math.PI / 2; aura.position.y = .04; avatar.add(aura); avatar.traverse(o => { if (o instanceof THREE.Mesh) { o.castShadow = true; o.receiveShadow = true } }); scene.add(avatar) }
+buildAvatar(avatarSettings)
 
-  const startRun = (tutorial: boolean) => {
-    if (!game) return
-    audio.unlock()
-    audio.startMusic()
-    game.start(tutorial)
-    ui.show('hud')
-    loop.resetAccumulator()
-    input.lockPointer()
-  }
-  const pause = () => {
-    if (game?.mode !== 'playing') return
-    game.pause()
-    ui.show('pause')
-    input.unlockPointer()
-  }
-  const resume = () => {
-    if (game?.mode !== 'paused') return
-    game.resume()
-    ui.show('hud')
-    loop.resetAccumulator()
-    input.lockPointer()
-  }
-
-  const ui = new Ui(i18n, save, audio, input, {
-    play: () => startRun(!save.data.tutorialDone),
-    restart: () => startRun(false),
-    resume,
-    quit: () => {
-      game?.toTitle()
-      ui.show('title')
-      input.unlockPointer()
-    },
-    settings: patch => {
-      const qualityChanged = patch.quality !== undefined && patch.quality !== save.data.quality
-      save.update(patch)
-      applySettings(save.data)
-      if (patch.locale) i18n.set(patch.locale)
-      if (qualityChanged) game?.setQuality(save.data.quality)
-    },
-  })
-  ui.show('boot')
-  applySettings(save.data)
-
-  // Boot: the UI above is already on screen; three.js, Rapier (WASM) and the game load as a
-  // separate chunk behind the progress bar. Preload models/textures here too (engine/assets.ts).
-  let loaded = 0
-  const track = <T>(p: Promise<T>): Promise<T> => p.then(v => (ui.setBootProgress(0.1 + (++loaded / 4) * 0.9), v))
-  ui.setBootProgress(0.1)
-  const [{ Game }, { Renderer, suggestQuality }, physics] = await Promise.all([
-    track(import('./game/game')),
-    track(import('./engine/renderer')),
-    track(import('./engine/physics')),
-    track(document.fonts.ready),
-  ])
-  await physics.initPhysics()
-  if (firstRun) {
-    save.update({ quality: suggestQuality() })
-    ui.refreshSettings()
-  }
-
-  const renderer = new Renderer(canvas, save.data.quality)
-  game = new Game(renderer, input, audio, {
-    popup: (text, at, kind) => ui.popup(text, at, kind),
-    hurt: () => ui.hurt(),
-    hint: hint => ui.hint(hint),
-    tutorialDone: () => save.update({ tutorialDone: true }),
-    end: run => {
-      input.unlockPointer()
-      window.setTimeout(() => ui.showResults(run), run.phase === 'won' ? 1400 : 900)
-    },
-  })
-  game.reducedMotion = save.data.reducedMotion
-  if (import.meta.env.DEV) {
-    const [{ registerGameTuning }, { tuning }] = await Promise.all([
-      import('../scripts/manus-tuning/adapter.js'), import('./game/tuning'),
-    ])
-    await registerGameTuning(tuning)
-  }
-  const g = game
-
-  const loop = new GameLoop({
-    step: dt => g.step(dt),
-    render: (alpha, frameSeconds) => {
-      input.update()
-      if (input.consume('pause') && performance.now() - lockLostAt > 300) {
-        if (g.mode === 'playing') pause()
-        else if (g.mode === 'paused' && ui.screen === 'pause') resume()
-      }
-      ui.frame(frameSeconds)
-      loop.paused = g.mode === 'paused'
-      g.render(alpha, frameSeconds)
-      if (g.mode === 'playing' || g.mode === 'ended') ui.updateHud(g.run, g.compass())
-    },
-  })
-  loop.start()
-
-  document.addEventListener('pointerlockchange', () => {
-    // Browsers release pointer lock on Escape without delivering the key: treat that as pause.
-    if (!document.pointerLockElement && g.mode === 'playing' && input.method === 'keyboard') {
-      lockLostAt = performance.now()
-      pause()
-    }
-  })
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) pause()
-  })
-  window.addEventListener('game:pause', pause)
-  canvas.addEventListener('click', () => {
-    if (g.mode === 'playing') input.lockPointer()
-  })
-  new TouchControls(document.getElementById('ui')!, input, () => g.mode === 'playing')
-
-  window.setTimeout(() => ui.show('title'), 250)
-  // Debug/test hook (read-only use): smoke tests inspect run state through it.
-  ;(window as unknown as { __game: unknown }).__game = { game: g, ui, input, save }
-}
-
-function safeGet(key: string): string | null {
-  try {
-    return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-boot().catch(err => {
-  console.error(err)
-  const el = document.getElementById('ui')
-  if (el) el.innerHTML = `<div class="fatal">Failed to start: ${String((err as Error)?.message ?? err).replace(/[<>&]/g, '')}</div>`
-})
+const keys = new Set<string>(); const touch = { x: 0, y: 0, dash: false }; let playing = false; let shardsCollected = 0; let lastTime = performance.now(); let pointerLook: { id: number; x: number; y: number } | null = null
+function setText(id: string, value: string): void { const el = document.getElementById(id); if (el) el.textContent = value }
+function readSettings(): AvatarSettings { return { ...avatarSettings, name: (document.getElementById('name-input') as HTMLInputElement).value.trim().toUpperCase() || 'NIGHTSHADE', archetype: (document.getElementById('archetype-input') as HTMLSelectElement).value } }
+function applySettings(): void { avatarSettings = readSettings(); buildAvatar(avatarSettings); setText('profile-name', avatarSettings.name); setText('footer-name', avatarSettings.name); setText('profile-archetype', avatarSettings.archetype.toUpperCase()); setText('mode-pill', playing ? 'ARENA RUN' : 'LAB PREVIEW') }
+function resetShards(): void { shardsCollected = 0; shards.forEach((s, i) => { s.visible = true; s.position.y = .55 + (i % 3) * .04 }); setText('shard-count', '00') }
+function beginPlay(): void { playing = true; setText('mode-pill', 'ARENA RUN'); resetShards(); document.body.classList.add('playing') }
+function finishImage(img: HTMLImageElement): void { const c = document.createElement('canvas'); c.width = c.height = 256; const ctx = c.getContext('2d')!; const size = Math.min(img.naturalWidth, img.naturalHeight * .72); const sx = (img.naturalWidth - size) / 2; const sy = Math.max(0, img.naturalHeight * .02); const sh = Math.min(size, img.naturalHeight - sy); ctx.drawImage(img, sx, sy, size, sh, 0, 0, 256, 256); faceTexture?.dispose(); faceTexture = new THREE.CanvasTexture(c); faceTexture.colorSpace = THREE.SRGBColorSpace; buildAvatar(avatarSettings); const portrait = document.getElementById('portrait') as HTMLImageElement; portrait.src = c.toDataURL('image/jpeg', .86); portrait.classList.add('visible'); document.getElementById('portrait-placeholder')?.classList.add('hidden'); setText('face-status', 'LOCAL FACE CROP') }
+document.getElementById('image-input')?.addEventListener('change', e => { const file = (e.target as HTMLInputElement).files?.[0]; if (!file) return; const img = new Image(); img.onload = () => finishImage(img); img.src = URL.createObjectURL(file) })
+document.getElementById('morph-button')?.addEventListener('click', applySettings); document.getElementById('play-button')?.addEventListener('click', beginPlay); document.getElementById('reset-button')?.addEventListener('click', resetShards); document.getElementById('name-input')?.addEventListener('input', () => setText('footer-name', (document.getElementById('name-input') as HTMLInputElement).value.toUpperCase() || 'NIGHTSHADE'))
+for (const btn of document.querySelectorAll<HTMLButtonElement>('.swatch')) btn.addEventListener('click', () => { const group = btn.closest('[data-swatch]')?.getAttribute('data-swatch'); if (!group) return; btn.parentElement?.querySelectorAll('.swatch').forEach(s => s.classList.remove('active')); btn.classList.add('active'); if (group === 'hair') avatarSettings.hair = btn.dataset.value ?? avatarSettings.hair; else avatarSettings.outfit = btn.dataset.value ?? avatarSettings.outfit; buildAvatar(avatarSettings) })
+window.addEventListener('keydown', e => { keys.add(e.key.toLowerCase()); if (e.key === 'Shift') touch.dash = true }); window.addEventListener('keyup', e => { keys.delete(e.key.toLowerCase()); if (e.key === 'Shift') touch.dash = false })
+document.getElementById('joystick')?.addEventListener('pointerdown', e => { const pad = e.currentTarget as HTMLElement; pad.setPointerCapture(e.pointerId); const update = (ev: PointerEvent) => { const r = pad.getBoundingClientRect(); const dx = ev.clientX - (r.left + r.width / 2); const dy = ev.clientY - (r.top + r.height / 2); const len = Math.max(1, Math.hypot(dx, dy)); const cap = Math.min(36, len); touch.x = dx / len * cap / 36; touch.y = dy / len * cap / 36; pad.querySelector<HTMLElement>('i')!.style.transform = `translate(${touch.x * 36}px, ${touch.y * 36}px)` }; update(e); const move = (ev: PointerEvent) => update(ev); const end = () => { touch.x = 0; touch.y = 0; pad.querySelector<HTMLElement>('i')!.style.transform = ''; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end) }; window.addEventListener('pointermove', move); window.addEventListener('pointerup', end) })
+document.getElementById('dash-button')?.addEventListener('pointerdown', () => { touch.dash = true; window.setTimeout(() => { touch.dash = false }, 180) }); canvas.addEventListener('pointerdown', e => { if (!playing || e.pointerType === 'mouse') return; pointerLook = { id: e.pointerId, x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId) }); canvas.addEventListener('pointermove', e => { if (!pointerLook || e.pointerId !== pointerLook.id) return; avatar.rotation.y -= (e.clientX - pointerLook.x) * .009; pointerLook.x = e.clientX; pointerLook.y = e.clientY }); canvas.addEventListener('pointerup', () => { pointerLook = null })
+function resize(): void { renderer.setSize(window.innerWidth, window.innerHeight, false); camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix() }; window.addEventListener('resize', resize); resize()
+function animate(now: number): void { const dt = Math.min(.04, (now - lastTime) / 1000); lastTime = now; const moveX = Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft')) + touch.x; const moveZ = Number(keys.has('s') || keys.has('arrowdown')) - Number(keys.has('w') || keys.has('arrowup')) + touch.y; const len = Math.hypot(moveX, moveZ) || 1; const speed = touch.dash || keys.has('shift') ? 7.5 : 3.5; if (playing) { avatar.position.x = THREE.MathUtils.clamp(avatar.position.x + moveX / len * speed * dt, -7.1, 7.1); avatar.position.z = THREE.MathUtils.clamp(avatar.position.z + moveZ / len * speed * dt, -7.1, 7.1); if (Math.abs(moveX) + Math.abs(moveZ) > .1) avatar.rotation.y = THREE.MathUtils.lerp(avatar.rotation.y, Math.atan2(moveX, moveZ), .12) } avatar.position.y = Math.sin(now * .003) * .035; shards.forEach((s, i) => { if (s.visible) { s.rotation.y += dt * (1.2 + i * .02); s.position.y = .55 + Math.sin(now * .002 + i) * .1; if (playing && s.position.distanceTo(avatar.position) < .72) { s.visible = false; shardsCollected += 1; setText('shard-count', String(shardsCollected).padStart(2, '0')) } } }); const desired = new THREE.Vector3(avatar.position.x + 4.1, 3.5, avatar.position.z - 5.9); camera.position.lerp(desired, 1 - Math.pow(.0008, dt)); camera.lookAt(avatar.position.x, 1.25, avatar.position.z); ring.rotation.z += dt * .1; renderer.render(scene, camera); requestAnimationFrame(animate) }
+requestAnimationFrame(animate)
