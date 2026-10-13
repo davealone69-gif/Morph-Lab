@@ -67,7 +67,9 @@ try {
   // Let Playwright scroll the card into the actual scroll container. The old
   // manual .app-shell scroll assumed the outer shell owned scrolling on every
   // viewport; desktop uses .left-column as its own scroll container.
-  await worldCard.scrollIntoViewIfNeeded()
+  // The fixed bottom navigation overlays the viewport, so "visible" alone
+  // is not enough. Center the target above that navigation before clicking.
+  await worldCard.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }))
   await worldCard.click({ position: { x: 20, y: 20 } })
   await page.waitForFunction(() => document.querySelector('#scene-title')?.textContent?.includes('ASHEN CONSERVATORY'))
 
