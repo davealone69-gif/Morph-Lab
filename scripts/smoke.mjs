@@ -67,9 +67,21 @@ try {
   // Let Playwright scroll the card into the actual scroll container. The old
   // manual .app-shell scroll assumed the outer shell owned scrolling on every
   // viewport; desktop uses .left-column as its own scroll container.
-  // The fixed bottom navigation overlays the viewport, so "visible" alone
-  // is not enough. Center the target above that navigation before clicking.
-  await worldCard.evaluate(element => element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }))
+  // The fixed bottom navigation overlays the viewport. Scroll the real
+  // container until the entire card sits above the nav, then exercise a real click.
+  await worldCard.evaluate(element => {
+    const shell = element.closest('.app-shell')
+    const nav = document.querySelector('.mobile-nav')
+    if (!shell || !nav) throw new Error('mobile scroll container or navigation is missing')
+    const cardBottom = element.getBoundingClientRect().bottom
+    const navTop = nav.getBoundingClientRect().top
+    if (cardBottom >= navTop - 12) shell.scrollBy({ top: cardBottom - navTop + 32, behavior: 'instant' })
+  })
+  await page.waitForFunction(() => {
+    const card = document.querySelector('[data-action="world"][data-world="ashen-conservatory"]')
+    const nav = document.querySelector('.mobile-nav')
+    return !!card && !!nav && card.getBoundingClientRect().bottom < nav.getBoundingClientRect().top - 8
+  }, undefined, { timeout: 5000 })
   await worldCard.click({ position: { x: 20, y: 20 } })
   await page.waitForFunction(() => document.querySelector('#scene-title')?.textContent?.includes('ASHEN CONSERVATORY'))
 
